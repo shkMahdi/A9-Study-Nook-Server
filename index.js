@@ -34,14 +34,18 @@ async function run() {
     const db = client.db("study-nook-db");
     const roomCollection = db.collection("rooms");
 
+    app.get('/room', async (req, res) => {
+      const result = await roomCollection.find().toArray();
+      res.json(result);
+    });
 
     app.post('/room', async (req, res) => {
-      
+
       const roomData = req.body
       console.log(roomData);
-      
+
       const result = await roomCollection.insertOne(roomData);
-      
+
       res.json(result);
     });
 
@@ -56,9 +60,9 @@ async function run() {
 run().catch(console.dir);
 
 app.get('/', (req, res) => {
-    res.send("server is running fine")
+  res.send("server is running fine")
 })
 
 app.listen(PORT, () => {
-    console.log(`server running on port ${PORT}`);
+  console.log(`server running on port ${PORT}`);
 })
