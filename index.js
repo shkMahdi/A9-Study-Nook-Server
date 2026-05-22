@@ -76,6 +76,29 @@ async function run() {
       res.json(result);
     });
 
+    app.get("/featured-rooms", async (req, res) => {
+
+      try {
+
+        const rooms = await roomsCollection
+          .find()
+          .sort({ createdAt: -1 })
+          .limit(6)
+          .toArray();
+
+        res.send(rooms);
+
+      } catch (error) {
+
+        console.log(error);
+
+        res.status(500).send({
+          message: error.message
+        });
+
+      }
+
+    });
 
     app.patch('/room/:id', async (req, res) => {
       const { id } = req.params;
