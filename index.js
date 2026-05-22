@@ -39,6 +39,37 @@ async function run() {
       res.json(result);
     });
 
+    app.get("/room/user/:email", async (req, res) => {
+
+      try {
+
+        const email = req.params.email;
+
+        console.log("EMAIL:", email);
+
+        const rooms = await roomCollection
+          .find({
+            ownerEmail: email
+          })
+          .toArray();
+
+        console.log("ROOMS:", rooms);
+
+        res.send(rooms);
+
+      } catch (error) {
+
+        console.log("SERVER ERROR:");
+        console.log(error);
+
+        res.status(500).send({
+          message: error.message
+        });
+
+      }
+
+    });
+
     app.get('/room/:id', async (req, res) => {
       const id = req.params.id;
       const result = await roomCollection.findOne({ _id: new ObjectId(id) });
@@ -47,20 +78,20 @@ async function run() {
 
 
     app.patch('/room/:id', async (req, res) => {
-      const {id} = req.params;
-      const updateData = req.body; 
+      const { id } = req.params;
+      const updateData = req.body;
 
       const result = await roomCollection.updateOne(
-        {_id: new ObjectId(id)},
-        {$set: updateData}
+        { _id: new ObjectId(id) },
+        { $set: updateData }
       )
 
       res.json(result);
     })
 
     app.delete('/room/:id', async (req, res) => {
-      const {id} = req.params;
-      const result = await roomCollection.deleteOne({_id: new ObjectId(id)});
+      const { id } = req.params;
+      const result = await roomCollection.deleteOne({ _id: new ObjectId(id) });
 
       res.json(result);
     })
