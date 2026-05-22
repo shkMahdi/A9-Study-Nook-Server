@@ -9,7 +9,10 @@ const express = require('express')
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const app = express()
 
-app.use(cors());
+app.use(cors({
+  origin: 'http://localhost:3000',
+  credentials: true,
+}));
 app.use(express.json());
 
 const PORT = process.env.PORT || 5000;
@@ -33,6 +36,7 @@ async function run() {
 
     const db = client.db("study-nook-db");
     const roomCollection = db.collection("rooms");
+    const bookingsCollection = db.collection("bookings");
 
     app.get('/room', async (req, res) => {
       const result = await roomCollection.find().toArray();
@@ -80,7 +84,7 @@ async function run() {
 
       try {
 
-        const rooms = await roomsCollection
+        const rooms = await roomCollection
           .find()
           .sort({ createdAt: -1 })
           .limit(6)
@@ -118,6 +122,92 @@ async function run() {
 
       res.json(result);
     })
+
+    //booking
+    app.post('/bookings', async (req, res) => {
+      try {
+        const {
+          roomId,
+          roomName,
+          date,
+          startTime,
+          endTime,
+          totalCost,
+          note,
+          userEmail,
+        } = req.body;
+
+        const conflict = await bookingsCollection.findOne({
+          roomId,
+          date,
+          status: 'confirmed',
+          $or: [
+            { startTime: { $lt: endTime }, endTime: { $gt: startTime } },
+          ],
+        });
+
+        if (conflict) {
+          return res.status(409).json({
+            error: `This room is already booked from ${conflict.startTime} to ${conflict.endTime} on ${date}. Please choose a different slot.`,
+          });
+        }
+
+        const booking = {
+          roomId,
+          roomName,
+          date,
+          startTime,
+          endTime,
+          totalCost,
+          note: note || '',
+          userEmail,
+          status: 'confirmed',
+          createdAt: new Date(),
+        };
+
+        const result = await bookingsCollection.insertOne(booking);
+
+        await roomCollection.updateOne(
+          { _id: new ObjectId(roomId) },
+          { $inc: { bookingCount: 1 } },
+        );
+
+        res.status(201).json({
+          message: 'Room booked successfully',
+          bookingId: result.insertedId,
+        });
+      } catch (error) {
+        console.log(error); // so you see the real error in the terminal
+        res.status(500).json({ error: error.message || 'Internal server error' });
+      }
+    });
+
+
+    app.get("/bookings/user/:email", async (req, res) => {
+      try {
+        const bookings = await bookingsCollection
+          .find({ userEmail: req.params.email })
+          .sort({ createdAt: -1 })
+          .toArray();
+        res.send(bookings);
+      } catch (error) {
+        console.log(error);
+        res.status(500).send({ message: error.message });
+      }
+    });
+
+    app.patch("/bookings/:id", async (req, res) => {
+      try {
+        const result = await bookingsCollection.updateOne(
+          { _id: new ObjectId(req.params.id) },
+          { $set: { status: req.body.status } }
+        );
+        res.json(result);
+      } catch (error) {
+        console.log(error);
+        res.status(500).json({ error: error.message });
+      }
+    });
 
 
     app.post('/room', async (req, res) => {
