@@ -7,10 +7,11 @@ dotenv.config();
 
 const express = require('express')
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
+const { createRemoteJWKSet, jwtVerify } = require("jose-cjs");
 const app = express()
 
 app.use(cors({
-  origin: 'http://localhost:3000',
+  origin: process.env.CLIENT_URL,
   credentials: true,
 }));
 app.use(express.json());
@@ -28,10 +29,35 @@ const client = new MongoClient(uri, {
   }
 });
 
+const JWKS = createRemoteJWKSet(
+  new URL (`${process.env.CLIENT_URL}/api/auth/jwks`)
+)
+
+const verifyToken = async (req, res, next) => {
+  const authHealer = req?.headers.authorization
+
+  if(!authHealer) {
+    return res.status(401).json({message: "Unauthorized"})
+  }
+  const token = authHealer.split(" ")[1];
+
+  if(!token){
+    return res.status(401).json({message: "Unauthorized"})
+  }
+
+  try{
+    const {payload} = await jwtVerify(token, JWKS)
+    console.log(payload)
+    next()
+  }catch (error) {
+    return res.status(403).json({message: "Forbidden" })
+  }
+}
+
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+    // await client.connect();
     // Send a ping to confirm a successful connection
 
     const db = client.db("study-nook-db");
@@ -74,7 +100,7 @@ async function run() {
 
     });
 
-    app.get('/room/:id', async (req, res) => {
+    app.get('/room/:id', verifyToken, async (req, res) => {
       const id = req.params.id;
       const result = await roomCollection.findOne({ _id: new ObjectId(id) });
       res.json(result);
@@ -221,7 +247,7 @@ async function run() {
     });
 
 
-    await client.db("admin").command({ ping: 1 });
+    // await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
     // Ensures that the client will close when you finish/error
